@@ -1,5 +1,7 @@
 package sc.server.network
 
+import io.kotest.assertions.until.fixed
+import io.kotest.assertions.until.until
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Disabled
@@ -16,9 +18,13 @@ import sc.server.plugins.TestMove
 import sc.server.plugins.TestPlugin
 import sc.server.plugins.TestTurnRequest
 import sc.shared.WelcomeMessage
+import kotlin.time.ExperimentalTime
+import kotlin.time.milliseconds
+import kotlin.time.seconds
 
 private const val PASSWORD = "TEST_PASSWORD"
 
+@ExperimentalTime
 class RequestTest: RealServerTest() {
     private lateinit var player1: LobbyClient
     private lateinit var player2: LobbyClient
@@ -158,8 +164,9 @@ class RequestTest: RealServerTest() {
         // no state will be send if game is paused TestHelper.waitUntilTrue(()->listener.newStateReceived, 2000);
         listener.newStateReceived = false
         
-        TestHelper.waitUntilTrue({ p1Listener.playerEventReceived }, 2000)
-        p1Listener.playerEventReceived = false
+        until(2.seconds, 100.milliseconds.fixed()) {
+        
+        }
         assertEquals(p1Listener.requests.size.toLong(), 1)
         assertEquals(p1Listener.requests[0].javaClass, WelcomeMessage::class.java)
         
@@ -322,7 +329,7 @@ class RequestTest: RealServerTest() {
     }
     
     @Test
-    fun pauseRequest() {
+    suspend fun pauseRequest() {
         player1.authenticate(PASSWORD)
         val listener = TestLobbyClientListener()
         val p1Listener = PlayerListener()
@@ -356,17 +363,15 @@ class RequestTest: RealServerTest() {
         // assert that (if the game is paused) no new gameState is send to the observers after a pending Request was received
         assertFalse(listener.newStateReceived)
         
-        
-        p1Listener.playerEventReceived = false
-        p2Listener.playerEventReceived = false
         player1.send(PauseGameRequest(room.id, false))
         TestHelper.waitUntilEqual(false, { (room.game as RoundBasedGameInstance<*>).isPaused }, 2000)
         
         
-        TestHelper.waitMillis(500)
-        assertTrue(p2Listener.playerEventReceived)
-        assertEquals(p2Listener.requests[p2Listener.requests.size - 1].javaClass,
-            TestTurnRequest::class.java)
+        println(p2Listener.requests)
+        until(1.seconds, 200.milliseconds.fixed()) {
+            p2Listener.requests.size > 2
+        }
+        assertEquals(p2Listener.requests[p2Listener.requests.size - 1].javaClass, TestTurnRequest::class.java)
     }
     
 }
